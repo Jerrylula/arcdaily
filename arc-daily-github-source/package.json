@@ -1,0 +1,24 @@
+{
+  "name": "arc-daily-checkin",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=20.9.0" },
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "compile": "node scripts/compile.mjs",
+    "build": "npm run compile && tsc --noEmit && vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "test": "node --test test/contract.test.mjs",
+    "test:ui": "node scripts/test-ui.mjs"
+  },
+  "dependencies": { "ethers": "6.16.0" },
+  "devDependencies": {
+    "@types/node": "22.15.30",
+    "ganache": "7.9.2",
+    "playwright": "1.56.1",
+    "solc": "0.8.30",
+    "typescript": "5.8.3",
+    "vite": "6.4.1"
+  }
+}
