@@ -13,36 +13,44 @@ el('app').innerHTML = `
       <div class="header-actions"><span class="network-badge"><i></i> ARC MAINNET</span><label class="language-picker"><span data-i18n="language">语言</span><select id="language" aria-label="Language"><option value="zh">中文</option><option value="en">EN</option></select></label><select id="wallet-choice" data-i18n-aria="walletChoice" aria-label="选择 EVM 钱包" hidden></select><button class="button secondary" id="connect">连接钱包 ${arrow}</button></div>
     </header>
     <main>
-      <div class="page-heading"><div><p class="eyebrow"><span class="signal-dot"></span> <span data-i18n="heroEyebrow">ARC MAINNET / 每日仪式</span></p><h1 data-i18n="heroTitle">签到签到，共同奔向A8！</h1><p class="muted" data-i18n="heroSubtitle">在月光下留下今日的印记。每一次签到，都由 Arc 主网珍藏。</p><p class="wallet-support" data-i18n="walletSupport">支持 MetaMask · Binance Wallet · 其他 EVM 钱包</p></div><div class="date-block"><span data-i18n="utcDay">UTC 签到日</span><strong id="date">—</strong><small data-i18n="dailyReset">每日 00:00 更新</small></div></div>
+      <section class="page-heading" aria-labelledby="page-title">
+        <div class="hero-copy">
+          <h1 id="page-title" data-i18n="heroTitle">签到签到，共同奔向A8！</h1>
+          <div class="hero-rule" aria-hidden="true"><span>✦</span></div>
+          <p class="hero-date"><span data-i18n="utcDay">UTC 签到日</span><time id="date">—</time></p>
+        </div>
+        <div class="hero-art" aria-hidden="true"><span class="hero-moon"></span><img src="/hero-portrait.png" alt="" width="1585" height="992" fetchpriority="high" /></div>
+      </section>
       <div class="workspace">
-        <section class="checkin-card" aria-labelledby="checkin-title">
-          <div class="card-top"><span class="eyebrow" data-i18n="cardEyebrow">01 / 每日签到</span><span class="pill" id="status">等待连接</span></div>
-          <div class="checkin-center"><div class="check-symbol" aria-hidden="true"><svg viewBox="0 0 80 80"><path d="m21 41 13 13 26-29" /></svg></div><h2 id="checkin-title" data-i18n="dailyCheckIn">每日签到</h2><p id="checkin-description">连接钱包，留下今天的链上印记。</p></div>
-          <div class="cost-row"><span data-i18n="feeLabel">项目收取费用</span><strong>0 <small>USDC</small></strong></div>
-          <button class="button primary" id="checkin">连接钱包开始 ${arrow}</button>
-          <p class="gas-note" id="gas-note">仅支付 Arc 网络 Gas，由钱包中的 USDC 支付。</p>
-        </section>
-        <section class="records" aria-labelledby="records-title">
-          <div class="section-heading"><div><p class="eyebrow" data-i18n="personalEyebrow">你的链上足迹</p><h2 id="records-title" data-i18n="myCheckIns">我的签到</h2></div><button class="text-button" id="refresh" data-i18n="refreshRecords">刷新记录 ↻</button></div>
-          <div class="stats"><div><span data-i18n="totalChecks">累计签到</span><strong id="total">—</strong><small data-i18n="dayUnit">天</small></div><div><span data-i18n="currentStreak">连续签到</span><strong id="streak">—</strong><small data-i18n="dayUnit">天</small></div><div><span data-i18n="longestStreak">最长连续</span><strong id="longest">—</strong><small data-i18n="dayUnit">天</small></div></div>
-          <div class="week-panel"><div class="section-heading"><h3 data-i18n="lastSeven">最近 7 天</h3><span class="legend"><i></i> <span data-i18n="checkedIn">已签到</span></span></div><div class="week" id="week"></div><p id="week-note" class="muted small">连接钱包后显示链上记录</p></div>
-          <div class="reset-row"><span class="reset-icon" aria-hidden="true">◷</span><div><h3 data-i18n="resetTitle">午夜之后，新的篇章</h3><p data-i18n="resetDescription">每日 UTC 00:00（北京时间 08:00）重置</p></div><span class="countdown" id="countdown">—</span></div>
+        <div class="checkin-column">
+          <section class="checkin-card" aria-labelledby="checkin-title">
+            <div class="card-top"><h2 id="checkin-title" data-i18n="dailyCheckIn">每日签到</h2><span class="pill" id="status">等待连接</span></div>
+            <div class="checkin-center"><div class="check-symbol" aria-hidden="true"><svg viewBox="0 0 80 80"><path d="m21 41 13 13 26-29" /></svg></div><p id="checkin-description">连接钱包，留下今天的链上印记。</p></div>
+            <div class="cost-row"><span data-i18n="feeLabel">项目收取费用</span><strong>0 <small>USDC</small></strong></div>
+            <button class="button primary" id="checkin">连接钱包开始 ${arrow}</button>
+            <p class="gas-note" id="gas-note">仅支付 Arc 网络 Gas，由钱包中的 USDC 支付。</p>
+          </section>
+          <section class="records" aria-labelledby="records-title">
+            <div class="section-heading"><h2 id="records-title" data-i18n="myCheckIns">我的签到</h2><button class="text-button" id="refresh" data-i18n="refreshRecords">刷新记录 ↻</button></div>
+            <div class="stats"><div><span data-i18n="totalChecks">累计签到</span><strong id="total">—</strong><small data-i18n="dayUnit">天</small></div><div><span data-i18n="currentStreak">连续签到</span><strong id="streak">—</strong><small data-i18n="dayUnit">天</small></div><div><span data-i18n="longestStreak">最长连续</span><strong id="longest">—</strong><small data-i18n="dayUnit">天</small></div></div>
+            <div class="week-panel"><div class="section-heading"><h3 data-i18n="lastSeven">最近 7 天</h3><span class="legend"><i></i> <span data-i18n="checkedIn">已签到</span></span></div><div class="week" id="week"></div><p id="week-note" class="muted small">连接钱包后显示链上记录</p></div>
+            <div class="reset-row"><span class="reset-icon" aria-hidden="true">◷</span><span data-i18n="resetTitle">午夜之后，新的篇章</span><span class="countdown" id="countdown">—</span></div>
+          </section>
+        </div>
+        <section class="leaderboard" aria-labelledby="leaderboard-title">
+          <div class="leaderboard-head"><h2 id="leaderboard-title" data-i18n="leaderboard">签到排行榜</h2><div class="rank-head-actions"><span class="live-badge"><i></i> LIVE ON ARC</span><button class="text-button" id="rank-refresh" data-i18n="refreshNow">立即刷新 ↻</button></div></div>
+          <div class="rank-meta"><span id="rank-status" role="status">正在读取链上记录…</span><span id="rank-total">— 个钱包参与</span></div>
+          <div class="rank-table-head"><span data-i18n="rankWallet">名次 / 钱包</span><span data-i18n="rankStreak">连续签到</span><span data-i18n="rankTotal">累计签到</span></div>
+          <div id="rank-rows" class="rank-rows"></div>
+          <div id="rank-self" class="rank-self" hidden></div>
+          <button id="rank-more" class="rank-more" hidden>查看更多钱包 ↓</button>
         </section>
       </div>
-      <section class="leaderboard" aria-labelledby="leaderboard-title">
-        <div class="leaderboard-head"><div><p class="eyebrow" data-i18n="rankEyebrow">02 / 链上排行榜</p><h2 id="leaderboard-title" data-i18n="leaderboard">签到排行榜</h2><p class="muted" data-i18n="rankDescription">按累计签到次数排名 · 每 1 分钟自动同步</p></div><div class="rank-head-actions"><span class="live-badge"><i></i> LIVE ON ARC</span><button class="text-button" id="rank-refresh" data-i18n="refreshNow">立即刷新 ↻</button></div></div>
-        <div class="rank-meta"><span id="rank-status" role="status">正在读取链上记录…</span><span id="rank-total">— 个钱包参与</span></div>
-        <div class="rank-table-head"><span data-i18n="rankWallet">名次 / 钱包</span><span data-i18n="rankStreak">连续签到</span><span data-i18n="rankTotal">累计签到</span></div>
-        <div id="rank-rows" class="rank-rows"></div>
-        <div id="rank-self" class="rank-self" hidden></div>
-        <button id="rank-more" class="rank-more" hidden>查看更多钱包 ↓</button>
-      </section>
       <div id="message" class="message" role="status" aria-live="polite" hidden></div>
       <div id="transaction" class="transaction" hidden><span id="transaction-label"></span><a id="transaction-link" target="_blank" rel="noreferrer" data-i18n="txView">查看交易 ↗</a></div>
-      <div class="info-strip"><span><b>01</b> <span data-i18n="ruleOne">每个钱包每天一次</span></span><span><b>02</b> <span data-i18n="ruleTwo">记录保存在 Arc 主网</span></span><span><b>03</b> <span data-i18n="ruleThree">无项目费用 · 无代币授权</span></span></div>
       <div id="setup-notice" class="setup-notice" data-i18n="setupNotice" hidden>签到服务暂未开放。</div>
     </main>
-    <footer><span>ARC DAILY <span class="footer-divider">/</span> <span data-i18n="footerLine">每一天，都算数。</span></span><div><a id="contract-link" target="_blank" rel="noreferrer" data-i18n="contractLink" hidden>签到合约 ↗</a><a href="${ARC.explorer}" target="_blank" rel="noreferrer" data-i18n="explorerLink">Arc 浏览器 ↗</a></div></footer>
+    <footer><span>ARC DAILY</span><div><a id="contract-link" target="_blank" rel="noreferrer" data-i18n="contractLink" hidden>签到合约 ↗</a><a href="${ARC.explorer}" target="_blank" rel="noreferrer" data-i18n="explorerLink">Arc 浏览器 ↗</a></div></footer>
   </div>`;
 
 let address = '';

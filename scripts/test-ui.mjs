@@ -183,6 +183,9 @@ try {
   const page = await context.newPage();
   await page.clock.install();
   await page.goto(baseUrl);
+  await page.locator('.hero-art img').evaluate(image => image.decode());
+  assert.equal(await page.locator('.hero-art img').evaluate(image => image.naturalWidth > 0), true, 'The hero illustration must load.');
+  assert.equal(await page.locator('h1').evaluate(node => getComputedStyle(node).fontFamily.includes('Arc Gothic Display')), true);
   assert.deepEqual(await page.locator('#wallet-choice option').allTextContents(), ['MetaMask', 'Binance Wallet']);
   assert.equal(await page.locator('#wallet-choice').isVisible(), true, 'Wallet options appear before connection.');
   await page.locator('#connect').click();
@@ -216,10 +219,23 @@ try {
   assert.equal((await page.locator('#rank-rows .rank-item').innerText()).includes('1 天'), true);
   await page.waitForFunction(() => /^\d{2}:\d{2}:\d{2}$/.test(document.querySelector('#countdown').textContent));
   await assertNoOverflow(page);
+  const desktopCards = await page.evaluate(() => Object.fromEntries(['.checkin-card', '.records', '.leaderboard'].map(selector => {
+    const { x, y, width, height } = document.querySelector(selector).getBoundingClientRect();
+    return [selector, { x, y, width, height }];
+  })));
+  assert.ok(desktopCards['.checkin-card'].x < desktopCards['.leaderboard'].x, 'Check-in belongs left of the leaderboard.');
+  assert.ok(desktopCards['.records'].y > desktopCards['.checkin-card'].y, 'Personal records belong below check-in.');
+  assert.ok(Math.abs(desktopCards['.checkin-card'].y - desktopCards['.leaderboard'].y) < 2, 'Desktop card tops align.');
   await page.screenshot({ path: resolve(outputDir, 'desktop.png'), fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });
   await assertNoOverflow(page);
+  const mobileOrder = await page.evaluate(() => ['.checkin-card', '.records', '.leaderboard'].map(selector => document.querySelector(selector).getBoundingClientRect().y));
+  assert.ok(mobileOrder[0] < mobileOrder[1] && mobileOrder[1] < mobileOrder[2], 'Mobile cards stack in task order.');
   await page.screenshot({ path: resolve(outputDir, 'mobile.png'), fullPage: true });
+  for (const width of [320, 768, 1024, 1920]) {
+    await page.setViewportSize({ width, height: 900 });
+    await assertNoOverflow(page);
+  }
   await page.setViewportSize({ width: 1440, height: 1040 });
   console.log('PASS check-in, zero transferred value, gas-only balance change, duplicate guard, and desktop/mobile layout');
 
@@ -327,8 +343,11 @@ try {
   await page.clock.fastForward(60_100);
   await waitText(page, '#rank-total', '3 个钱包参与');
   assert.equal(await page.locator('#rank-rows .rank-item').count(), 3);
+  await page.setViewportSize({ width: 1440, height: 1040 });
+  await page.screenshot({ path: resolve(outputDir, 'final-desktop.png'), fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });
   await assertNoOverflow(page);
+  await page.screenshot({ path: resolve(outputDir, 'final-mobile.png'), fullPage: true });
   const publicContext = await makeContext({ wallet: false });
   const publicPage = await publicContext.newPage();
   await publicPage.goto(baseUrl);
