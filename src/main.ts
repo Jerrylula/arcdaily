@@ -1,6 +1,7 @@
 import { Contract, type TransactionReceipt } from 'ethers';
 import { ARC, arrow, contractAddress, el, errorText, logo, rpc, savedValue, saveValue, setMessage, shortAddress } from './config';
 import { artifact, feeQuote, isCheckInReceipt, usdc, verifyContract } from './chain';
+import { refreshLeaderboard, type LeaderboardSnapshot } from './leaderboard';
 import { connect, disconnect, initializeWallet, session, signerForArc, switchToArc } from './wallet';
 import './style.css';
 
@@ -8,25 +9,33 @@ el('app').innerHTML = `
   <div class="page-shell">
     <header class="site-header">
       <a class="brand" href="/" aria-label="Arc Daily 首页">${logo}</a>
-      <div class="header-actions"><span class="network-badge">ARC 主网</span><select id="wallet-choice" aria-label="选择钱包" hidden></select><button class="button secondary" id="connect">连接钱包 ${arrow}</button></div>
+      <div class="header-actions"><span class="network-badge"><i></i> ARC MAINNET</span><select id="wallet-choice" aria-label="选择 EVM 钱包" hidden></select><button class="button secondary" id="connect">连接钱包 ${arrow}</button></div>
     </header>
     <main>
-      <div class="page-heading"><div><p class="eyebrow">YOUR DAILY ONCHAIN MOMENT</p><h1>今天，也在链上。</h1><p class="muted">一次签到，留下今天的足迹。</p></div><div class="date-block"><span id="date">—</span><span>UTC 签到日</span></div></div>
+      <div class="page-heading"><div><p class="eyebrow"><span class="signal-dot"></span> ONCHAIN ATTENDANCE / ARC 5042</p><h1>让每一天，<em>都有链上回响。</em></h1><p class="muted">连接钱包，完成今日签到。每一次坚持，都由 Arc 主网记录。</p><p class="wallet-support">支持 MetaMask · Binance Wallet · 其他 EVM 钱包</p></div><div class="date-block"><span>UTC DAY</span><strong id="date">—</strong><small>每日 00:00 更新</small></div></div>
       <div class="workspace">
         <section class="checkin-card" aria-labelledby="checkin-title">
-          <div class="card-top"><span class="eyebrow">DAILY CHECK-IN</span><span class="pill" id="status">等待连接</span></div>
+          <div class="card-top"><span class="eyebrow">01 / DAILY CHECK-IN</span><span class="pill" id="status">等待连接</span></div>
           <div class="checkin-center"><div class="check-symbol" aria-hidden="true"><svg viewBox="0 0 80 80"><path d="m21 41 13 13 26-29" /></svg></div><h2 id="checkin-title">每日签到</h2><p id="checkin-description">连接钱包，记录你的 Arc 日常。</p></div>
           <div class="cost-row"><span>项目收取费用</span><strong>0 <small>USDC</small></strong></div>
           <button class="button primary" id="checkin">连接钱包开始 ${arrow}</button>
           <p class="gas-note" id="gas-note">仅支付 Arc 网络 Gas，由钱包中的 USDC 支付。</p>
         </section>
         <section class="records" aria-labelledby="records-title">
-          <div class="section-heading"><h2 id="records-title">我的签到</h2><button class="text-button" id="refresh">刷新记录 ↻</button></div>
+          <div class="section-heading"><div><p class="eyebrow">PERSONAL SIGNAL</p><h2 id="records-title">我的签到</h2></div><button class="text-button" id="refresh">刷新记录 ↻</button></div>
           <div class="stats"><div><span>累计签到</span><strong id="total">—</strong><small>天</small></div><div><span>连续签到</span><strong id="streak">—</strong><small>天</small></div><div><span>最长连续</span><strong id="longest">—</strong><small>天</small></div></div>
           <div class="week-panel"><div class="section-heading"><h3>最近 7 天</h3><span class="legend"><i></i> 已签到</span></div><div class="week" id="week"></div><p id="week-note" class="muted small">连接钱包后显示链上记录</p></div>
           <div class="reset-row"><span class="reset-icon" aria-hidden="true">◷</span><div><h3>每天，都是新的开始</h3><p>每日 UTC 00:00（北京时间 08:00）重置</p></div><span class="countdown" id="countdown">—</span></div>
         </section>
       </div>
+      <section class="leaderboard" aria-labelledby="leaderboard-title">
+        <div class="leaderboard-head"><div><p class="eyebrow">02 / GLOBAL RANKING</p><h2 id="leaderboard-title">链上签到榜</h2><p class="muted">按累计签到次数排名 · 每 1 分钟自动同步</p></div><div class="rank-head-actions"><span class="live-badge"><i></i> LIVE ON ARC</span><button class="text-button" id="rank-refresh">立即刷新 ↻</button></div></div>
+        <div class="rank-meta"><span id="rank-status" role="status">正在读取链上记录…</span><span id="rank-total">— 个钱包参与</span></div>
+        <div class="rank-table-head"><span>名次 / 钱包</span><span>连续签到</span><span>累计签到</span></div>
+        <div id="rank-rows" class="rank-rows"></div>
+        <div id="rank-self" class="rank-self" hidden></div>
+        <button id="rank-more" class="rank-more" hidden>查看更多钱包 ↓</button>
+      </section>
       <div id="message" class="message" role="status" aria-live="polite" hidden></div>
       <div id="transaction" class="transaction" hidden><span id="transaction-label"></span><a id="transaction-link" target="_blank" rel="noreferrer">查看交易 ↗</a></div>
       <div class="info-strip"><span><b>01</b> 每个钱包每天一次</span><span><b>02</b> 记录保存在 Arc 主网</span><span><b>03</b> 无项目费用 · 无代币授权</span></div>
@@ -48,6 +57,10 @@ let loadVersion = 0;
 let pendingHash = '';
 let pendingOwner = '';
 let quote: Awaited<ReturnType<typeof feeQuote>> | undefined;
+let ranking: LeaderboardSnapshot | undefined;
+let visibleRanks = 10;
+let rankingBusy = false;
+let rankingNeedsRefresh = false;
 
 const pendingKey = (account: string) => `arc-daily:${ARC.id}:${address}:${account}:pending`;
 
@@ -56,6 +69,88 @@ function displayTransaction(hash: string, text: string) {
   if (!hash) return;
   el('transaction-label').textContent = text;
   el<HTMLAnchorElement>('transaction-link').href = `${ARC.explorer}/tx/${hash}`;
+}
+
+function rankingItem(row: LeaderboardSnapshot['rows'][number], position: number) {
+  const item = document.createElement('div');
+  item.className = `rank-item ${position < 3 ? 'rank-top' : ''} ${row.address.toLowerCase() === session.account.toLowerCase() ? 'rank-mine' : ''}`;
+  const identity = document.createElement('div');
+  identity.className = 'rank-identity';
+  const place = document.createElement('span');
+  place.className = 'rank-position';
+  place.textContent = String(position + 1).padStart(2, '0');
+  const avatar = document.createElement('span');
+  avatar.className = 'rank-avatar';
+  avatar.textContent = row.address.slice(2, 4).toUpperCase();
+  const wallet = document.createElement('a');
+  wallet.href = `${ARC.explorer}/address/${row.address}`;
+  wallet.target = '_blank';
+  wallet.rel = 'noreferrer';
+  wallet.textContent = shortAddress(row.address);
+  identity.append(place, avatar, wallet);
+  if (row.address.toLowerCase() === session.account.toLowerCase()) {
+    const mine = document.createElement('span');
+    mine.className = 'rank-me';
+    mine.textContent = '我';
+    identity.append(mine);
+  }
+  const streak = document.createElement('span');
+  streak.className = 'rank-streak';
+  streak.textContent = `${row.day + 1 < (ranking?.day ?? 0) ? 0 : row.streak} 天`;
+  const total = document.createElement('strong');
+  total.className = 'rank-total';
+  total.textContent = `${row.total} 天`;
+  item.append(identity, streak, total);
+  return item;
+}
+
+function renderRanking() {
+  const rows = ranking?.rows ?? [];
+  const container = el('rank-rows');
+  container.replaceChildren();
+  if (!ranking) return;
+  if (!session.account) el('date').textContent = new Date(ranking.day * 86400_000).toISOString().slice(0, 10);
+  if (!rows.length) {
+    const empty = document.createElement('div');
+    empty.className = 'rank-empty';
+    empty.textContent = '还没有钱包签到。成为链上的第一位。';
+    container.append(empty);
+  } else rows.slice(0, visibleRanks).forEach((row, index) => container.append(rankingItem(row, index)));
+  el('rank-total').textContent = `${ranking.totalUsers} 个钱包参与`;
+  const ownRank = rows.findIndex(row => row.address.toLowerCase() === session.account.toLowerCase());
+  const self = el('rank-self');
+  self.replaceChildren();
+  self.hidden = ownRank < visibleRanks || ownRank < 0;
+  if (!self.hidden) {
+    const label = document.createElement('span');
+    label.textContent = '我的名次';
+    self.append(label, rankingItem(rows[ownRank], ownRank));
+  }
+  const more = el<HTMLButtonElement>('rank-more');
+  more.hidden = rows.length <= visibleRanks;
+  more.textContent = `查看更多钱包 · 还剩 ${rows.length - visibleRanks} 位 ↓`;
+}
+
+async function refreshRanks() {
+  if (rankingBusy) { rankingNeedsRefresh = true; return; }
+  if (!address) {
+    el('rank-status').textContent = '签到服务暂未开放';
+    return;
+  }
+  rankingBusy = true;
+  el<HTMLButtonElement>('rank-refresh').disabled = true;
+  el('rank-status').textContent = ranking ? '正在更新链上排行…' : '正在读取链上签到事件…';
+  try {
+    ranking = await refreshLeaderboard(address, message => { el('rank-status').textContent = message; });
+    renderRanking();
+    el('rank-status').textContent = `已同步至区块 ${ranking.block.toLocaleString()} · ${new Date(ranking.checkedAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })} 更新`;
+  } catch (error) {
+    el('rank-status').textContent = `${ranking ? '更新失败，显示上次结果。' : '暂时无法读取排行榜。'} ${errorText(error)}`;
+  } finally {
+    rankingBusy = false;
+    el<HTMLButtonElement>('rank-refresh').disabled = false;
+    if (rankingNeedsRefresh) { rankingNeedsRefresh = false; void refreshRanks(); }
+  }
 }
 
 function render() {
@@ -99,6 +194,7 @@ function resetRecords() {
   currentDay = 0;
   chainTime = 0;
   for (const id of ['total', 'streak', 'longest', 'date', 'countdown']) el(id).textContent = '—';
+  if (ranking) el('date').textContent = new Date(ranking.day * 86400_000).toISOString().slice(0, 10);
   el('week-note').textContent = session.account ? '等待读取主网记录' : '连接钱包后显示链上记录';
   renderWeek();
 }
@@ -193,6 +289,7 @@ initializeWallet(() => {
   displayTransaction(pendingHash, '交易已提交，等待主网确认');
   setMessage('');
   render();
+  renderRanking();
   void refresh();
 });
 
@@ -246,6 +343,7 @@ el('checkin').addEventListener('click', async () => {
     }
     if (receipt) completeReceipt(receipt, owner, sentHash);
     await refresh(true);
+    if (receipt) void refreshRanks();
   } catch (error) {
     if (owner !== session.account) return;
     if (sentHash) {
@@ -258,6 +356,8 @@ el('checkin').addEventListener('click', async () => {
 });
 
 el('refresh').addEventListener('click', () => { setMessage(''); void refresh(); });
+el('rank-refresh').addEventListener('click', () => { void refreshRanks(); });
+el('rank-more').addEventListener('click', () => { visibleRanks += 20; renderRanking(); });
 setInterval(() => {
   if (!chainTime) return;
   const timestamp = chainTime + Math.floor((Date.now() - syncedAt) / 1000);
@@ -266,6 +366,12 @@ setInterval(() => {
   if (seconds === 0 && !loading && !busy) { ready = false; void refresh(true); }
 }, 1000);
 setInterval(() => { if (session.account && address && !busy && !loading && !document.hidden) void refresh(true); }, 30_000);
-document.addEventListener('visibilitychange', () => { if (!document.hidden && !loading && !busy) void refresh(true); });
+setInterval(() => { if (!document.hidden) void refreshRanks(); }, 60_000);
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) return;
+  if (!loading && !busy) void refresh(true);
+  void refreshRanks();
+});
 renderWeek();
 render();
+void refreshRanks();

@@ -2,7 +2,9 @@
 
 一个运行在 **Arc 主网**上的钱包签到项目。每个钱包每天可签到一次，项目不收取签到费用；用户只需支付 Arc 网络 Gas，以原生 USDC 结算。
 
-项目包含 Solidity 合约和中文签到页面，使用 TypeScript、Vite 与 ethers v6，无需后端。支持累计签到、当前连续签到、最长连续签到和最近 7 天记录。公开网站只有签到功能，没有合约部署或切换合约入口。
+项目包含 Solidity 合约和中文签到页面，使用 TypeScript、Vite 与 ethers v6，无需后端。支持累计签到、当前连续签到、最长连续签到、最近 7 天记录及链上签到排行榜。公开网站只有签到功能，没有合约部署或切换合约入口。
+
+钱包可通过 EIP-6963 或注入的 EVM 钱包接口连接，包括 MetaMask、Binance Wallet 等。连接后刷新页面会用钱包已授权的地址自动恢复；点击“断开”后不会自动恢复。
 
 无需在自己电脑运行项目的上线方式，见 [GitHub + Cloudflare Workers 操作指南](./DEPLOY_GUIDE.md)。
 
@@ -39,9 +41,12 @@ npm run dev
 ```dotenv
 VITE_ARC_RPC_URL=https://rpc.mainnet.arc.io
 VITE_CHECKIN_CONTRACT_ADDRESS=
+VITE_CHECKIN_DEPLOYMENT_BLOCK=
 ```
 
 `VITE_CHECKIN_CONTRACT_ADDRESS` 必须填写已经部署的 Arc 主网签到合约地址。留空时公开页面显示“签到服务暂未开放”，无法签到。`VITE_` 变量会公开进入浏览器构建产物，只可填写公开配置。无需提供私钥或助记词，也不要把它们放入 `.env` 或客户端代码。
+
+`VITE_CHECKIN_DEPLOYMENT_BLOCK` 可选，填合约部署交易所在的区块号（纯数字）。排行榜按 `CheckedIn` 链上事件中的钱包累计次数排序，每 60 秒同步一次，也可手动刷新。未填写时网页会尝试从历史链上状态寻找部署区块，无法查询历史状态时从创世区块扫描；合约交易越多、部署越久，初次加载可能越慢。新访客不需要连接钱包也能看榜。排行榜只有完整扫描并与合约全局计数核对后才显示更新后的数据。
 
 ## 配置已部署的 Arc 主网合约
 

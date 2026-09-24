@@ -27,6 +27,7 @@ GitHub 仓库的 `package.json`、`package-lock.json`、`index.html` 及 `src/` 
 | Variable name | Variable value |
 | --- | --- |
 | `VITE_CHECKIN_CONTRACT_ADDRESS` | 已部署签到合约的完整 `0x` 地址 |
+| `VITE_CHECKIN_DEPLOYMENT_BLOCK` | 可选；部署交易所在的区块号，只填数字。设置后排行榜首次加载更快 |
 
 值只填合约地址，不填钱包地址、交易哈希、引号或 `VITE_CHECKIN_CONTRACT_ADDRESS=` 前缀。这个公开地址须在 **Settings → Build** 中设置；`Settings → Variables & Secrets` 是运行时变量页面，不能代替本项目的构建变量。
 
@@ -41,5 +42,7 @@ GitHub 仓库的 `package.json`、`package-lock.json`、`index.html` 及 `src/` 
 1. 在无痕窗口打开生产网址。页面底部应没有“项目设置”，且整个站点不提供 `/deploy.html` 部署页。
 2. 点击页脚“签到合约”，核对 Arc 浏览器里的地址是项目方指定的合约。
 3. 连接钱包，按提示切换 Arc 主网，完成一次签到。签到交易只需钱包支付 Arc 网络 Gas，项目不收费用。
+4. 刷新网页，已授权的钱包应自动恢复连接；点击“断开”后再次刷新应保持断开。页面支持 MetaMask、Binance Wallet 等注入式 EVM 钱包，也支持 EIP-6963 的钱包选择。
+5. 排行榜不需要钱包连接，按累计签到次数排序，每分钟自动同步一次。若一直显示无法读取，请检查 Arc RPC 是否支持历史事件查询，并在构建变量中填写合约部署区块后重新构建。
 
 如果页面显示“签到服务暂未开放”，检查 `VITE_CHECKIN_CONTRACT_ADDRESS` 是否在构建变量中正确填写，并确认保存后有一次新的成功构建。若连接钱包后提示合约代码不一致，检查地址是否属于本项目当前编译版本的 Arc 主网合约。

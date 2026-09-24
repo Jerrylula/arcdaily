@@ -1,47 +1,120 @@
 import { BrowserProvider, type Eip1193Provider, type JsonRpcSigner } from 'ethers';
-import { ARC, validAddress } from './config';
+import { ARC, savedValue, saveValue, validAddress } from './config';
 
 type InjectedProvider = Eip1193Provider & {
   on?: (event: string, handler: (...args: unknown[]) => void) => void;
   removeListener?: (event: string, handler: (...args: unknown[]) => void) => void;
+  providers?: InjectedProvider[];
+  isMetaMask?: boolean;
+  isBinance?: boolean;
+  isRabby?: boolean;
 };
-type WalletChoice = { name: string; provider: InjectedProvider };
-declare global { interface Window { ethereum?: InjectedProvider } }
+type WalletChoice = { id: string; name: string; provider: InjectedProvider };
+type Announcement = { info?: { name?: string; rdns?: string }; provider?: InjectedProvider };
+declare global { interface Window { ethereum?: InjectedProvider; BinanceChain?: InjectedProvider } }
 
+const preferenceKey = `arc-daily:${ARC.id}:wallet`;
 export const wallets: WalletChoice[] = [];
 export const session = { account: '', chainId: 0, revision: 0 };
 let injected: InjectedProvider | undefined;
 let onChange = () => {};
+let restoreInFlight = false;
+let generation = 0;
 
-function announce(event: Event) {
-  const detail = (event as CustomEvent<{ info: { name: string }; provider: InjectedProvider }>).detail;
-  if (!detail?.provider || wallets.some(wallet => wallet.provider === detail.provider)) return;
-  wallets.push({ name: detail.info.name, provider: detail.provider });
-  updateChoices();
-}
 function updateChoices() {
   const select = document.getElementById('wallet-choice') as HTMLSelectElement | null;
   if (!select) return;
   const selected = select.value;
   select.replaceChildren(...wallets.map((wallet, index) => new Option(wallet.name, String(index))));
-  if (selected) select.value = selected;
+  if (selected && Number(selected) < wallets.length) select.value = selected;
   select.hidden = wallets.length < 2;
   select.disabled = Boolean(session.account);
+}
+
+function register(provider: InjectedProvider | undefined, name: string, id: string) {
+  if (!provider || typeof provider.request !== 'function') return;
+  const existing = wallets.find(wallet => wallet.provider === provider);
+  if (existing) {
+    if (name !== '浏览器钱包') existing.name = name;
+  } else {
+    wallets.push({ provider, name, id });
+  }
+  updateChoices();
+  void restoreSession();
+}
+
+function fallbackName(provider: InjectedProvider) {
+  return provider.isBinance ? 'Binance Wallet' : provider.isRabby ? 'Rabby' : provider.isMetaMask ? 'MetaMask' : 'EVM 浏览器钱包';
+}
+
+function fallbackId(provider: InjectedProvider) {
+  return provider.isBinance ? 'injected:binance' : provider.isRabby ? 'injected:rabby' : provider.isMetaMask ? 'injected:metamask' : 'injected:browser';
+}
+
+function announce(event: Event) {
+  const detail = (event as CustomEvent<Announcement>).detail;
+  if (!detail?.provider) return;
+  const name = detail.info?.name?.trim() || fallbackName(detail.provider);
+  const id = detail.info?.rdns?.trim().toLowerCase() || fallbackId(detail.provider);
+  register(detail.provider, name, id);
+}
+
+function discoverFallbacks() {
+  const providers = window.ethereum?.providers ?? (window.ethereum ? [window.ethereum] : []);
+  for (const provider of providers) register(provider, fallbackName(provider), fallbackId(provider));
+  register(window.BinanceChain, 'Binance Wallet', 'injected:binance');
+}
+
+function detach() {
+  injected?.removeListener?.('accountsChanged', accountsChanged);
+  injected?.removeListener?.('chainChanged', chainChanged);
+  injected?.removeListener?.('disconnect', disconnected);
+  injected = undefined;
+}
+
+function attach(wallet: WalletChoice, account: string, chainId: number) {
+  detach();
+  injected = wallet.provider;
+  injected.on?.('accountsChanged', accountsChanged);
+  injected.on?.('chainChanged', chainChanged);
+  injected.on?.('disconnect', disconnected);
+  session.account = account;
+  session.chainId = chainId;
+  session.revision++;
+  saveValue(preferenceKey, wallet.id);
+  updateChoices();
+  onChange();
 }
 
 export function initializeWallet(callback: () => void) {
   onChange = callback;
   window.addEventListener('eip6963:announceProvider', announce);
   window.dispatchEvent(new Event('eip6963:requestProvider'));
-  if (window.ethereum && !wallets.some(wallet => wallet.provider === window.ethereum)) {
-    wallets.push({ name: '浏览器钱包', provider: window.ethereum });
-  }
+  discoverFallbacks();
+  window.addEventListener('focus', () => { discoverFallbacks(); void restoreSession(); });
   updateChoices();
 }
 
+export async function restoreSession() {
+  const id = savedValue(preferenceKey);
+  const wallet = wallets.find(choice => choice.id === id);
+  if (!id || !wallet || session.account || restoreInFlight) return;
+  restoreInFlight = true;
+  const started = generation;
+  try {
+    // eth_accounts is read-only and never opens a wallet approval popup.
+    const accounts = await wallet.provider.request({ method: 'eth_accounts' }) as string[];
+    const account = validAddress(accounts?.[0] || '');
+    if (!account) return;
+    const chainId = Number(await wallet.provider.request({ method: 'eth_chainId' }));
+    if (started !== generation || session.account || savedValue(preferenceKey) !== id) return;
+    attach(wallet, account, chainId);
+  } catch { /* The wallet may be locked or unavailable. A manual connect still works. */ }
+  finally { restoreInFlight = false; }
+}
+
 const accountsChanged = (...args: unknown[]) => {
-  const accounts = args[0] as string[];
-  session.account = validAddress(accounts?.[0] || '');
+  session.account = validAddress((args[0] as string[] | undefined)?.[0] || '');
   session.revision++;
   updateChoices();
   onChange();
@@ -54,10 +127,9 @@ const chainChanged = (...args: unknown[]) => {
 const disconnected = () => { disconnect(); };
 
 export function disconnect() {
-  injected?.removeListener?.('accountsChanged', accountsChanged);
-  injected?.removeListener?.('chainChanged', chainChanged);
-  injected?.removeListener?.('disconnect', disconnected);
-  injected = undefined;
+  generation++;
+  saveValue(preferenceKey, '');
+  detach();
   session.account = '';
   session.chainId = 0;
   session.revision++;
@@ -66,24 +138,18 @@ export function disconnect() {
 }
 
 export async function connect() {
-  if (!wallets.length && window.ethereum) wallets.push({ name: '浏览器钱包', provider: window.ethereum });
+  discoverFallbacks();
   const index = Number((document.getElementById('wallet-choice') as HTMLSelectElement)?.value || 0);
-  const selected = wallets[index]?.provider;
-  if (!selected) throw new Error('未检测到钱包。请在安装了 MetaMask、Rabby 等钱包扩展的浏览器，或钱包内置浏览器中打开。');
-  const accounts = await selected.request({ method: 'eth_requestAccounts' }) as string[];
-  const chain = await selected.request({ method: 'eth_chainId' }) as string;
-  const account = validAddress(accounts[0] || '');
+  const wallet = wallets[index];
+  if (!wallet) throw new Error('未检测到 EVM 钱包。请安装 MetaMask、Binance Wallet 等钱包扩展，或在钱包内置浏览器中打开。');
+  generation++;
+  const started = generation;
+  const accounts = await wallet.provider.request({ method: 'eth_requestAccounts' }) as string[];
+  const chainId = Number(await wallet.provider.request({ method: 'eth_chainId' }));
+  const account = validAddress(accounts?.[0] || '');
   if (!account) throw new Error('钱包未返回可用地址，请重试。');
-  disconnect();
-  injected = selected;
-  injected.on?.('accountsChanged', accountsChanged);
-  injected.on?.('chainChanged', chainChanged);
-  injected.on?.('disconnect', disconnected);
-  session.account = account;
-  session.chainId = Number(chain);
-  session.revision++;
-  updateChoices();
-  onChange();
+  if (started !== generation) return;
+  attach(wallet, account, chainId);
 }
 
 export async function switchToArc() {

@@ -108,7 +108,25 @@ async function makeContext({ wallet = true, viewport = { width: 1440, height: 10
           return window.__localWalletRpc(payload);
         },
       };
+      const binance = {
+        isBinance: true,
+        on: injected.on.bind(injected),
+        removeListener: injected.removeListener.bind(injected),
+        async request(payload) {
+          if (payload.method === 'eth_requestAccounts' || payload.method === 'eth_accounts') return [accounts[2]];
+          return injected.request(payload);
+        },
+      };
       window.ethereum = injected;
+      window.BinanceChain = binance;
+      window.addEventListener('eip6963:requestProvider', () => {
+        window.dispatchEvent(new CustomEvent('eip6963:announceProvider', {
+          detail: { info: { name: 'MetaMask', rdns: 'io.metamask' }, provider: injected },
+        }));
+        window.dispatchEvent(new CustomEvent('eip6963:announceProvider', {
+          detail: { info: { name: 'Binance Wallet', rdns: 'com.binance.wallet' }, provider: binance },
+        }));
+      });
       window.__walletTest = {
         requests,
         setAccount(index) { selected = index; emit('accountsChanged', [accounts[selected]]); },
@@ -155,13 +173,15 @@ try {
   assert.equal(await disconnected.locator('#setup-notice').isVisible(), false);
   assert.equal(await disconnected.locator('a[href="/deploy.html"]').count(), 0);
   await disconnected.locator('#connect').click();
-  await waitText(disconnected, '#message', '未检测到钱包');
+  await waitText(disconnected, '#message', '未检测到 EVM 钱包');
   await noWallet.close();
   console.log('PASS disconnected state and missing-wallet feedback');
 
   const context = await makeContext();
   const page = await context.newPage();
+  await page.clock.install();
   await page.goto(baseUrl);
+  assert.deepEqual(await page.locator('#wallet-choice option').allTextContents(), ['MetaMask', 'Binance Wallet']);
   await page.locator('#connect').click();
   await waitText(page, '#total', '0');
   await waitEnabled(page, '#checkin');
@@ -187,6 +207,9 @@ try {
   assert.ok(receipt && receipt.status === 1);
   assert.equal(beforeBalance - await rpc.getBalance(accounts[0]), receipt.fee, 'Only network gas is charged.');
   assert.equal(await rpc.getBalance(address), 0n);
+  await waitText(page, '#rank-total', '1 个钱包参与');
+  assert.equal(await page.locator('#rank-rows .rank-item').count(), 1);
+  assert.equal((await page.locator('#rank-rows .rank-item').innerText()).includes('1 天'), true);
   await page.waitForFunction(() => /^\d{2}:\d{2}:\d{2}$/.test(document.querySelector('#countdown').textContent));
   await assertNoOverflow(page);
   await page.screenshot({ path: resolve(outputDir, 'desktop.png'), fullPage: true });
@@ -222,6 +245,7 @@ try {
   await page.locator('#checkin').click();
   await waitText(page, '#message', '签到成功');
   await waitText(page, '#checkin', '今日已签到');
+  await waitText(page, '#rank-total', '2 个钱包参与');
   console.log('PASS account changes, unknown-chain addition/switch, rejected transaction, and retry');
 
   await page.evaluate(() => window.__walletTest.setAccount(0));
@@ -241,6 +265,7 @@ try {
   assert.equal(await page.locator('#streak').textContent(), '2');
   assert.equal(await page.locator('#longest').textContent(), '2');
   assert.equal(await page.locator('#week .done').count(), 2);
+  await waitText(page, '#rank-rows .rank-item:first-child', '2 天');
   const contract = new Contract(address, artifact.abi, rpc);
   assert.equal((await contract.getStats(accounts[0])).totalCheckIns, 2n);
   console.log('PASS UTC day rollover, consecutive streak, and seven-day history');
@@ -256,7 +281,6 @@ try {
     localStorage.setItem(`${key}:nonce`, String(nonce));
   }, { key: pendingKey, hash: nonexistentHash, nonce: oldNonce });
   await page.reload();
-  await page.locator('#connect').click();
   await waitText(page, '#message', '此前交易已结束');
   await waitText(page, '#total', '2');
   await waitText(page, '#checkin', '今日已签到');
@@ -264,17 +288,46 @@ try {
   assert.equal(await page.evaluate(key => localStorage.getItem(`${key}:nonce`), pendingKey), null);
   assert.equal(await page.locator('#transaction').isVisible(), false);
   assert.equal(sentTransactions.length, sendsBeforeRecovery);
+  assert.equal(await page.evaluate(() => window.__walletTest.requests.some(request => request.method === 'eth_requestAccounts')), false,
+    'A refresh must restore a permitted wallet without another approval request.');
   console.log('PASS reload recovers a replaced pending check-in by mined nonce without sending again');
 
   const wrongAddress = '0x1000000000000000000000000000000000000001';
   await page.evaluate(value => localStorage.setItem('arc-daily:5042:contract', value), wrongAddress);
   await page.reload();
-  await page.locator('#connect').click();
   await waitText(page, '#total', '2');
   assert.equal(await page.locator('#checkin').isDisabled(), true);
   assert.equal(await page.locator('#contract-link').getAttribute('href'), `https://explorer.arc.io/address/${address}`);
   assert.equal(await page.locator('a[href="/deploy.html"]').count(), 0);
   console.log('PASS configured contract ignores legacy browser-stored override');
+
+  await page.locator('#connect').click();
+  await waitText(page, '#status', '等待连接');
+  await page.reload();
+  await waitText(page, '#status', '等待连接');
+  assert.equal(await page.evaluate(() => localStorage.getItem('arc-daily:5042:wallet')), null);
+  await page.locator('#wallet-choice').selectOption({ label: 'Binance Wallet' });
+  await page.locator('#connect').click();
+  await waitText(page, '#connect', getAddress(accounts[2]).slice(0, 6));
+  await page.reload();
+  await waitText(page, '#connect', getAddress(accounts[2]).slice(0, 6));
+  assert.equal(await page.evaluate(() => window.__walletTest.requests.some(request => request.method === 'eth_requestAccounts')), false);
+  console.log('PASS MetaMask/Binance wallet selection, silent reload restoration, and explicit disconnect');
+
+  const thirdWallet = new Contract(address, artifact.abi, await rpc.getSigner(2));
+  await (await thirdWallet.checkIn()).wait();
+  await page.clock.fastForward(60_100);
+  await waitText(page, '#rank-total', '3 个钱包参与');
+  assert.equal(await page.locator('#rank-rows .rank-item').count(), 3);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await assertNoOverflow(page);
+  const publicContext = await makeContext({ wallet: false });
+  const publicPage = await publicContext.newPage();
+  await publicPage.goto(baseUrl);
+  await waitText(publicPage, '#rank-total', '3 个钱包参与');
+  assert.equal(await publicPage.locator('#status').textContent(), '等待连接');
+  await publicContext.close();
+  console.log('PASS chain-event leaderboard includes every wallet and refreshes after one minute');
 
   assert.deepEqual(pageErrors, [], 'No unhandled browser errors are allowed.');
   assert.ok(blockedRequests.every(url => /fonts\.(googleapis|gstatic)\.com/.test(url)),
