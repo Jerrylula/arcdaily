@@ -30,9 +30,9 @@ el('app').innerHTML = `
       <div id="message" class="message" role="status" aria-live="polite" hidden></div>
       <div id="transaction" class="transaction" hidden><span id="transaction-label"></span><a id="transaction-link" target="_blank" rel="noreferrer">查看交易 ↗</a></div>
       <div class="info-strip"><span><b>01</b> 每个钱包每天一次</span><span><b>02</b> 记录保存在 Arc 主网</span><span><b>03</b> 无项目费用 · 无代币授权</span></div>
-      <div id="setup-notice" class="setup-notice" hidden>签到合约尚未配置。<a href="/deploy.html">项目方：部署或配置合约 ${arrow}</a></div>
+      <div id="setup-notice" class="setup-notice" hidden>签到服务暂未开放。</div>
     </main>
-    <footer><span>ARC DAILY <span class="footer-divider">/</span> 每一天，都算数。</span><div><a id="contract-link" target="_blank" rel="noreferrer" hidden>签到合约 ↗</a><a href="${ARC.explorer}" target="_blank" rel="noreferrer">Arc 浏览器 ↗</a><a href="/deploy.html">项目设置</a></div></footer>
+    <footer><span>ARC DAILY <span class="footer-divider">/</span> 每一天，都算数。</span><div><a id="contract-link" target="_blank" rel="noreferrer" hidden>签到合约 ↗</a><a href="${ARC.explorer}" target="_blank" rel="noreferrer">Arc 浏览器 ↗</a></div></footer>
   </div>`;
 
 let address = '';

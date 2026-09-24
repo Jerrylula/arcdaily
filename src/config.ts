@@ -15,7 +15,6 @@ request.timeout = 15_000;
 export const rpc = new JsonRpcProvider(request, ARC.id, { batchMaxCount: 1, cacheTimeout: -1 });
 rpc.pollingInterval = 3_000;
 
-export const CONTRACT_KEY = `arc-daily:${ARC.id}:contract`;
 export function savedValue(key: string): string {
   try { return localStorage.getItem(key) || ''; } catch { return ''; }
 }
@@ -28,7 +27,7 @@ export function validAddress(value: string): string {
 export function contractAddress(): string {
   const configured = import.meta.env.VITE_CHECKIN_CONTRACT_ADDRESS?.trim();
   if (configured && !validAddress(configured)) throw new Error('配置的签到合约地址无效，请检查 VITE_CHECKIN_CONTRACT_ADDRESS。');
-  return configured || validAddress(savedValue(CONTRACT_KEY));
+  return configured || '';
 }
 export function shortAddress(address: string): string {
   return `${address.slice(0, 6)}…${address.slice(-4)}`;

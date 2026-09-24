@@ -30,10 +30,18 @@ export async function compileContract() {
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const artifact = await compileContract();
-  for (const relativePath of ['artifacts/ArcCheckIn.json', 'src/generated/ArcCheckIn.json']) {
+  const frontendArtifact = {
+    contractName: artifact.contractName,
+    abi: artifact.abi,
+    deployedBytecode: artifact.deployedBytecode,
+  };
+  for (const [relativePath, contents] of [
+    ['artifacts/ArcCheckIn.json', artifact],
+    ['src/generated/ArcCheckIn.json', frontendArtifact],
+  ]) {
     const outputPath = resolve(root, relativePath);
     await mkdir(dirname(outputPath), { recursive: true });
-    await writeFile(outputPath, `${JSON.stringify(artifact, null, 2)}\n`);
+    await writeFile(outputPath, `${JSON.stringify(contents, null, 2)}\n`);
   }
   console.log(`Compiled ${artifact.contractName} with solc ${solc.version()} (EVM paris).`);
 }

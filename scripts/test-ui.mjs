@@ -4,7 +4,7 @@ import { mkdir, readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import ganache from 'ganache';
-import { Contract, JsonRpcProvider, getAddress } from 'ethers';
+import { Contract, ContractFactory, JsonRpcProvider, getAddress } from 'ethers';
 import { chromium } from 'playwright';
 import { createServer } from 'vite';
 import { compileContract } from './compile.mjs';
@@ -14,7 +14,6 @@ import { compileContract } from './compile.mjs';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const outputDir = resolve(root, 'test-results');
 const baseUrl = 'http://127.0.0.1:5175';
-const contractKey = 'arc-daily:5042:contract';
 const today = new Date().toISOString().slice(0, 10);
 const initialTime = new Date(`${today}T12:00:00.000Z`);
 const chain = ganache.server({
@@ -125,14 +124,18 @@ try {
   await mkdir(outputDir, { recursive: true });
   const artifact = await compileContract();
   const generated = JSON.parse(await readFile(resolve(root, 'src/generated/ArcCheckIn.json'), 'utf8'));
-  assert.equal(generated.bytecode, artifact.bytecode, 'Run npm run compile after changing the contract.');
+  assert.equal(generated.bytecode, undefined, 'The public frontend must not include deployment bytecode.');
   assert.equal(generated.deployedBytecode, artifact.deployedBytecode);
   await chain.listen(0, '127.0.0.1');
   const rpcUrl = `http://127.0.0.1:${chain.address().port}`;
   process.env.VITE_ARC_RPC_URL = rpcUrl;
-  process.env.VITE_CHECKIN_CONTRACT_ADDRESS = '';
   rpc = new JsonRpcProvider(rpcUrl, 5042, { cacheTimeout: -1 });
   rpc.pollingInterval = 100;
+  const deployment = await new ContractFactory(artifact.abi, artifact.bytecode, await rpc.getSigner(0)).deploy();
+  await deployment.waitForDeployment();
+  const address = await deployment.getAddress();
+  process.env.VITE_CHECKIN_CONTRACT_ADDRESS = address;
+  assert.equal(await rpc.getCode(address), artifact.deployedBytecode);
   vite = await createServer({
     root,
     server: { host: '127.0.0.1', port: 5175, strictPort: true },
@@ -149,7 +152,8 @@ try {
   await disconnected.goto(baseUrl);
   await waitText(disconnected, '#status', '等待连接');
   assert.equal(await disconnected.locator('#total').textContent(), '—');
-  assert.equal(await disconnected.locator('#setup-notice').isVisible(), true);
+  assert.equal(await disconnected.locator('#setup-notice').isVisible(), false);
+  assert.equal(await disconnected.locator('a[href="/deploy.html"]').count(), 0);
   await disconnected.locator('#connect').click();
   await waitText(disconnected, '#message', '未检测到钱包');
   await noWallet.close();
@@ -157,23 +161,6 @@ try {
 
   const context = await makeContext();
   const page = await context.newPage();
-  await page.goto(`${baseUrl}/deploy.html`);
-  assert.equal(await page.locator('#deploy').isDisabled(), true);
-  await page.locator('#connect').click();
-  await waitText(page, '#network-label', '5042');
-  assert.equal(await page.locator('#deploy').isDisabled(), true, 'Deployment requires acknowledging real gas.');
-  await page.locator('#acknowledge').check();
-  await waitEnabled(page, '#deploy');
-  await page.locator('#deploy').click();
-  await page.locator('#deployment-result').waitFor({ state: 'visible' });
-  const address = getAddress(await page.locator('#result-address').textContent());
-  assert.equal(await page.evaluate(key => localStorage.getItem(key), contractKey), address);
-  assert.equal(await rpc.getCode(address), artifact.deployedBytecode);
-  assert.equal(sentTransactions.length, 1);
-  assert.equal(BigInt(sentTransactions[0].value ?? 0), 0n);
-  assert.equal(await page.locator('#deploy').isDisabled(), true, 'Confirmed deployment must not be repeatable accidentally.');
-  console.log('PASS wallet deployment, gas acknowledgement, bytecode verification, and saved address');
-
   await page.goto(baseUrl);
   await page.locator('#connect').click();
   await waitText(page, '#total', '0');
@@ -191,8 +178,8 @@ try {
   assert.equal(await page.locator('#streak').textContent(), '1');
   assert.equal(await page.locator('#longest').textContent(), '1');
   assert.equal(await page.locator('#week .day.today.done').count(), 1);
-  assert.equal(sentTransactions.length, 2);
-  const checkInTx = sentTransactions[1];
+  assert.equal(sentTransactions.length, 1);
+  const checkInTx = sentTransactions[0];
   assert.equal(checkInTx.to.toLowerCase(), address.toLowerCase());
   assert.equal(BigInt(checkInTx.value ?? 0), 0n);
   const transactionUrl = await page.locator('#transaction-link').getAttribute('href');
@@ -279,68 +266,15 @@ try {
   assert.equal(sentTransactions.length, sendsBeforeRecovery);
   console.log('PASS reload recovers a replaced pending check-in by mined nonce without sending again');
 
-  const deploymentKeys = [
-    'arc-daily:5042:pending-deployment',
-    'arc-daily:5042:pending-deployment-tx',
-    'arc-daily:5042:pending-deployment-nonce',
-    'arc-daily:5042:pending-deployment-from',
-  ];
-  await page.evaluate(({ keys, values }) => {
-    keys.forEach((key, index) => localStorage.setItem(key, values[index]));
-  }, { keys: deploymentKeys, values: [accounts[2], nonexistentHash, String(oldNonce), account] });
-  const isTestRpc = url => url.origin === rpcUrl;
-  const failGetCode = async route => {
-    const request = route.request().postDataJSON();
-    if (request?.method !== 'eth_getCode') return route.fallback();
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      headers: { 'access-control-allow-origin': '*' },
-      body: JSON.stringify({ jsonrpc: '2.0', id: request.id, error: { code: -32000, message: 'RPC temporarily unavailable' } }),
-    });
-  };
-  await page.route(isTestRpc, failGetCode);
-  await page.goto(`${baseUrl}/deploy.html`);
-  await waitText(page, '#message', '暂时无法核对此前部署结果');
-  await page.locator('#connect').click();
-  await waitText(page, '#network-label', '5042');
-  await page.locator('#acknowledge').check();
-  assert.equal(await page.locator('#deploy').isDisabled(), true, 'Transport failure must retain pending deployment protection.');
-  assert.equal(await page.evaluate(key => localStorage.getItem(key), deploymentKeys[0]), accounts[2]);
-  assert.equal(sentTransactions.length, sendsBeforeRecovery);
-  await page.unroute(isTestRpc, failGetCode);
-  await page.reload();
-  await waitText(page, '#message', '此前交易已被替换或取消');
-  assert.deepEqual(await page.evaluate(keys => keys.map(key => localStorage.getItem(key)), deploymentKeys), [null, null, null, null]);
-  await page.locator('#connect').click();
-  await waitText(page, '#network-label', '5042');
-  await page.locator('#acknowledge').check();
-  await waitEnabled(page, '#deploy');
-  assert.equal(sentTransactions.length, sendsBeforeRecovery);
-  console.log('PASS pending deployment remains locked on RPC failure and unlocks after proven cancellation');
-
-  await page.goto(`${baseUrl}/deploy.html`);
-  await page.locator('#existing-address').fill('0x1234');
-  await page.locator('#save-address').click();
-  await waitText(page, '#message', '请输入有效');
-  assert.equal(await page.evaluate(key => localStorage.getItem(key), contractKey), address);
-  await page.locator('#existing-address').fill(accounts[2]);
-  await page.locator('#save-address').click();
-  await waitText(page, '#message', '没有合约');
-  assert.equal(await page.evaluate(key => localStorage.getItem(key), contractKey), address);
   const wrongAddress = '0x1000000000000000000000000000000000000001';
-  await chain.provider.request({ method: 'evm_setAccountCode', params: [wrongAddress, '0x60006000f3'] });
-  await page.locator('#existing-address').fill(wrongAddress);
-  await page.locator('#save-address').click();
-  await waitText(page, '#message', '合约代码与本项目不一致');
-  assert.equal(await page.evaluate(key => localStorage.getItem(key), contractKey), address);
-  await page.evaluate(({ key, value }) => localStorage.setItem(key, value), { key: contractKey, value: wrongAddress });
-  await page.goto(baseUrl);
+  await page.evaluate(value => localStorage.setItem('arc-daily:5042:contract', value), wrongAddress);
+  await page.reload();
   await page.locator('#connect').click();
-  await waitText(page, '#message', '合约代码与本项目不一致');
+  await waitText(page, '#total', '2');
   assert.equal(await page.locator('#checkin').isDisabled(), true);
-  assert.equal(await page.locator('#total').textContent(), '—');
-  console.log('PASS invalid, empty-code, and wrong-bytecode contracts are blocked');
+  assert.equal(await page.locator('#contract-link').getAttribute('href'), `https://explorer.arc.io/address/${address}`);
+  assert.equal(await page.locator('a[href="/deploy.html"]').count(), 0);
+  console.log('PASS configured contract ignores legacy browser-stored override');
 
   assert.deepEqual(pageErrors, [], 'No unhandled browser errors are allowed.');
   assert.ok(blockedRequests.every(url => /fonts\.(googleapis|gstatic)\.com/.test(url)),
