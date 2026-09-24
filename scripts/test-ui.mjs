@@ -168,6 +168,8 @@ try {
   const noWallet = await makeContext({ wallet: false });
   const disconnected = await noWallet.newPage();
   await disconnected.goto(baseUrl);
+  assert.equal(await disconnected.locator('h1').textContent(), '签到签到，共同奔向A8！');
+  assert.equal(await disconnected.locator('#wallet-choice').isVisible(), false);
   await waitText(disconnected, '#status', '等待连接');
   assert.equal(await disconnected.locator('#total').textContent(), '—');
   assert.equal(await disconnected.locator('#setup-notice').isVisible(), false);
@@ -182,7 +184,9 @@ try {
   await page.clock.install();
   await page.goto(baseUrl);
   assert.deepEqual(await page.locator('#wallet-choice option').allTextContents(), ['MetaMask', 'Binance Wallet']);
+  assert.equal(await page.locator('#wallet-choice').isVisible(), true, 'Wallet options appear before connection.');
   await page.locator('#connect').click();
+  await page.waitForFunction(() => document.querySelector('#wallet-choice')?.hidden === true);
   await waitText(page, '#total', '0');
   await waitEnabled(page, '#checkin');
   await waitText(page, '#status', '今日待签到');
@@ -296,6 +300,7 @@ try {
   await page.evaluate(value => localStorage.setItem('arc-daily:5042:contract', value), wrongAddress);
   await page.reload();
   await waitText(page, '#total', '2');
+  assert.equal(await page.locator('#wallet-choice').isVisible(), false, 'Restored wallet hides wallet options.');
   assert.equal(await page.locator('#checkin').isDisabled(), true);
   assert.equal(await page.locator('#contract-link').getAttribute('href'), `https://explorer.arc.io/address/${address}`);
   assert.equal(await page.locator('a[href="/deploy.html"]').count(), 0);
@@ -303,14 +308,17 @@ try {
 
   await page.locator('#connect').click();
   await waitText(page, '#status', '等待连接');
+  assert.equal(await page.locator('#wallet-choice').isVisible(), true, 'Disconnect reveals wallet options.');
   await page.reload();
   await waitText(page, '#status', '等待连接');
   assert.equal(await page.evaluate(() => localStorage.getItem('arc-daily:5042:wallet')), null);
   await page.locator('#wallet-choice').selectOption({ label: 'Binance Wallet' });
   await page.locator('#connect').click();
   await waitText(page, '#connect', getAddress(accounts[2]).slice(0, 6));
+  assert.equal(await page.locator('#wallet-choice').isVisible(), false);
   await page.reload();
   await waitText(page, '#connect', getAddress(accounts[2]).slice(0, 6));
+  assert.equal(await page.locator('#wallet-choice').isVisible(), false);
   assert.equal(await page.evaluate(() => window.__walletTest.requests.some(request => request.method === 'eth_requestAccounts')), false);
   console.log('PASS MetaMask/Binance wallet selection, silent reload restoration, and explicit disconnect');
 
@@ -326,8 +334,32 @@ try {
   await publicPage.goto(baseUrl);
   await waitText(publicPage, '#rank-total', '3 个钱包参与');
   assert.equal(await publicPage.locator('#status').textContent(), '等待连接');
+  await publicPage.locator('#language').selectOption('en');
+  await waitText(publicPage, '#status', 'Not connected');
+  assert.equal(await publicPage.locator('html').getAttribute('lang'), 'en');
+  assert.equal(await publicPage.locator('h1').textContent(), 'Check In, Check In — Onward to A8 Together!');
+  assert.equal(await publicPage.locator('#rank-total').textContent(), '3 wallets joined');
+  await publicPage.locator('#connect').click();
+  await waitText(publicPage, '#message', 'No EVM wallet detected');
+  await publicPage.reload();
+  await waitText(publicPage, '#status', 'Not connected');
+  assert.equal(await publicPage.locator('#language').inputValue(), 'en');
+  await assertNoOverflow(publicPage);
+  await page.locator('#language').selectOption('en');
+  await waitText(page, '#leaderboard-title', 'Check-in leaderboard');
+  assert.equal(await page.locator('#wallet-choice').isVisible(), false);
+  await page.reload();
+  await waitText(page, '#leaderboard-title', 'Check-in leaderboard');
+  assert.equal(await page.locator('#language').inputValue(), 'en');
+  assert.equal(await page.locator('#wallet-choice').isVisible(), false);
+  await page.locator('#connect').click();
+  await waitText(page, '#status', 'Not connected');
+  assert.equal(await page.locator('#wallet-choice').isVisible(), true);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await assertNoOverflow(page);
+  await page.screenshot({ path: resolve(outputDir, 'gothic-mobile-en.png'), fullPage: true });
   await publicContext.close();
-  console.log('PASS chain-event leaderboard includes every wallet and refreshes after one minute');
+  console.log('PASS chain-event leaderboard, bilingual UI, wallet selector visibility, and one-minute refresh');
 
   assert.deepEqual(pageErrors, [], 'No unhandled browser errors are allowed.');
   assert.ok(blockedRequests.every(url => /fonts\.(googleapis|gstatic)\.com/.test(url)),

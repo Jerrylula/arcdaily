@@ -1,4 +1,5 @@
 import { FetchRequest, JsonRpcProvider, getAddress, isAddress, ZeroAddress } from 'ethers';
+import { t } from './i18n';
 
 export const ARC = {
   id: 5042,
@@ -26,7 +27,7 @@ export function validAddress(value: string): string {
 }
 export function contractAddress(): string {
   const configured = import.meta.env.VITE_CHECKIN_CONTRACT_ADDRESS?.trim();
-  if (configured && !validAddress(configured)) throw new Error('配置的签到合约地址无效，请检查 VITE_CHECKIN_CONTRACT_ADDRESS。');
+  if (configured && !validAddress(configured)) throw new Error(t('invalidContract'));
   return configured || '';
 }
 export function shortAddress(address: string): string {
@@ -35,11 +36,11 @@ export function shortAddress(address: string): string {
 export function errorText(error: unknown): string {
   const e = error as { code?: string | number; message?: string; shortMessage?: string; info?: { error?: { code?: number; message?: string } } };
   const message = `${e?.shortMessage || e?.message || ''} ${e?.info?.error?.message || ''}`;
-  if (e?.code === 4001 || e?.code === 'ACTION_REJECTED' || e?.info?.error?.code === 4001) return '已取消钱包请求，没有发起新的交易。';
-  if (/insufficient funds/i.test(message)) return '钱包中的原生 USDC 不足以支付 Gas，请补充 Arc 主网 USDC 后重试。';
-  if (/AlreadyCheckedIn/i.test(message)) return '这个钱包今天已经签到了，请刷新记录。';
-  if (/timeout|TIMEOUT|Failed to fetch|network|SERVER_ERROR|fetch|ECONNREFUSED/i.test(message)) return '网络请求未完成，请检查连接并重试。已提交的交易可在浏览器中查看。';
-  return e instanceof Error ? (e.message.length < 180 ? e.message : '请求失败，请检查钱包提示和网络状态后重试。') : '请求失败，请重试。';
+  if (e?.code === 4001 || e?.code === 'ACTION_REJECTED' || e?.info?.error?.code === 4001) return t('rejected');
+  if (/insufficient funds/i.test(message)) return t('insufficientFunds');
+  if (/AlreadyCheckedIn/i.test(message)) return t('alreadyChecked');
+  if (/timeout|TIMEOUT|Failed to fetch|network|SERVER_ERROR|fetch|ECONNREFUSED/i.test(message)) return t('networkError');
+  return e instanceof Error ? (e.message.length < 180 ? e.message : t('requestFailed')) : t('retry');
 }
 
 export const logo = '<span class="brand-icon" aria-hidden="true">A</span><span>ARC<span class="brand-light"> DAILY</span></span>';

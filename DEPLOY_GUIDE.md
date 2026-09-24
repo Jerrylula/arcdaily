@@ -6,7 +6,7 @@
 
 Cloudflare 已连接 [Jerrylula/arcdaily](https://github.com/Jerrylula/arcdaily) 的 `main` 分支。在 GitHub 仓库最外层应用本次源码变更：
 
-- 删除 `deploy.html` 和 `src/deploy.ts`。
+- 删除旧版 `deploy.html` 和 `src/deploy.ts`。新版 `tsconfig.json` 也会排除遗留的 `src/deploy.ts`，避免旧文件误留时阻断构建；公开网站仍不包含部署入口。
 - 更新 `src/main.ts`、`src/config.ts`、`vite.config.ts`、`scripts/test-ui.mjs`、`README.md` 和本说明文件。
 
 GitHub 仓库的 `package.json`、`package-lock.json`、`index.html` 及 `src/` 等目录仍应在仓库最外层。`node_modules/`、`dist/` 不需要上传。

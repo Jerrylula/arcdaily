@@ -1,16 +1,17 @@
 import { Contract, formatUnits, keccak256, parseUnits, type Provider, type TransactionReceipt, type TransactionRequest } from 'ethers';
 import artifact from './generated/ArcCheckIn.json';
 import { ARC, rpc } from './config';
+import { t } from './i18n';
 
 export { artifact };
 
 export class ContractCodeError extends Error {}
 
 export async function verifyContract(address: string, provider: Provider = rpc) {
-  if ((await provider.getNetwork()).chainId !== BigInt(ARC.id)) throw new Error('RPC 网络与 Arc 主网不符，已停止操作。');
+  if ((await provider.getNetwork()).chainId !== BigInt(ARC.id)) throw new Error(t('wrongRpc'));
   const code = await provider.getCode(address);
-  if (code === '0x') throw new ContractCodeError('该地址在 Arc 主网上没有合约，请先部署或检查地址。');
-  if (keccak256(code) !== keccak256(artifact.deployedBytecode)) throw new ContractCodeError('该地址的合约代码与本项目不一致，已停止操作。');
+  if (code === '0x') throw new ContractCodeError(t('noContract'));
+  if (keccak256(code) !== keccak256(artifact.deployedBytecode)) throw new ContractCodeError(t('wrongContract'));
 }
 
 export async function feeQuote(transaction: TransactionRequest) {

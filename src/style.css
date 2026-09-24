@@ -137,7 +137,7 @@ select { border: 1px solid #3a535e; color: var(--ink); background: #14232f; bord
 .transaction { display: flex; justify-content: space-between; gap: 14px; }
 .transaction a { color: var(--aqua); white-space: nowrap; text-decoration: underline; }
 .info-strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin: 22px 0 0; color: #91aeb0; font-size: .78rem; }
-.info-strip span { border: 1px solid #2a434d; border-radius: 10px; padding: 12px 15px; background: #0b1b25; }
+.info-strip > span { border: 1px solid #2a434d; border-radius: 10px; padding: 12px 15px; background: #0b1b25; }
 .info-strip b { color: var(--aqua); margin-right: 8px; font-family: ui-monospace, monospace; }
 footer { border-top: 1px solid #2c4650; margin-top: 44px; padding: 22px 0 28px; color: #809da2; display: flex; justify-content: space-between; gap: 16px; font-size: .73rem; }
 footer > div { display: flex; gap: 19px; }
@@ -193,3 +193,148 @@ footer a:hover { color: var(--aqua); }
   .transaction { flex-direction: column; }
 }
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; transition: none !important; } }
+
+/* Midnight garden: restrained gothic arches, lace-like lines, moonlight and dusty roses. */
+:root {
+  font-family: "Noto Sans SC", "Microsoft YaHei", system-ui, sans-serif;
+  color: #f2ecf0;
+  background: #100e1a;
+  --ink: #f2ecf0;
+  --muted: #b2a8ba;
+  --panel: #1a1626;
+  --panel-2: #242033;
+  --line: #514356;
+  --aqua: #e6bcc8;
+  --lime: #d6c1df;
+}
+body::before {
+  background: radial-gradient(ellipse at 82% 7%, #4e355c8c, transparent 38%),
+    radial-gradient(ellipse at 7% 75%, #30233e9c, transparent 44%), #100e1a;
+}
+body::after {
+  opacity: .28;
+  background-image: radial-gradient(circle, #c7abc6 1px, transparent 1.5px),
+    linear-gradient(120deg, transparent 49.5%, #8b6f9655 50%, transparent 50.5%);
+  background-size: 94px 94px, 188px 188px;
+  mask-image: linear-gradient(to bottom, #000, transparent 88%);
+}
+button:focus-visible, select:focus-visible, a:focus-visible { outline-color: #e6bcc8; }
+.site-header { border-bottom-color: #71617b80; }
+.brand { font-family: Georgia, "Noto Serif SC", serif; font-weight: 700; letter-spacing: .09em; }
+.brand-icon {
+  color: #f1d5dc; background: linear-gradient(145deg, #493650, #211a30);
+  border: 1px solid #cda9b9; border-radius: 46% 46% 7px 7px;
+  box-shadow: inset 0 0 0 3px #241d34, 0 0 22px #b582b447;
+}
+.brand-light { color: #b4a1bb; }
+.header-actions { flex-wrap: wrap; justify-content: flex-end; }
+.language-picker { display: inline-flex; align-items: center; gap: 6px; color: #cdbbce; font-size: .75rem; white-space: nowrap; }
+.language-picker select { min-width: 72px; }
+.network-badge { background: #261d31; border-color: #735a77; color: #e7c9d1; }
+.network-badge i, .live-badge i, .signal-dot { background: #d7b8cb; box-shadow: 0 0 0 4px #d7b8cb20, 0 0 14px #d7b8cb; }
+.button, select { border-radius: 8px; }
+.button.secondary, select { background: #241d30; border-color: #6b5872; color: #f1e7ed; }
+.button.secondary:hover, select:hover { border-color: #d9b6c6; }
+.button.primary { color: #211724; background: linear-gradient(105deg, #e6bdcb, #d2c3e4); border: 1px solid #f1d4da; box-shadow: 0 12px 28px #09071466; }
+.button.primary:not(:disabled):hover { box-shadow: 0 0 22px #dfb9ce78; }
+.page-heading { position: relative; min-height: 294px; isolation: isolate; }
+.page-heading::before {
+  content: ""; position: absolute; z-index: -1; right: 12%; top: 14px;
+  width: 212px; height: 212px; border-radius: 50%;
+  background: radial-gradient(circle at 43% 36%, #f0e4ef 0, #c6b1cd 45%, #725875 72%, #503c5c 100%);
+  box-shadow: 0 0 0 15px #c7a9c00a, 0 0 0 34px #c7a9c009, 0 0 70px #be9dc577;
+  opacity: .45;
+}
+.page-heading h1 { max-width: 950px; font: 700 clamp(2.8rem, 5.5vw, 5.25rem)/1.22 Georgia, "Noto Serif SC", "Songti SC", SimSun, serif; letter-spacing: -.04em; color: #f6eaf0; text-shadow: 0 6px 30px #1b111f; }
+.page-heading .eyebrow { color: #dfb9cb; }
+.eyebrow { color: #d8b8c8; }
+.wallet-support { color: #c8b5c9; background: #251d31dd; border-color: #604a69; border-radius: 7px; }
+.date-block {
+  border-color: #8b728e; border-radius: 95px 95px 10px 10px;
+  background: linear-gradient(160deg, #55405a, #211a30 70%);
+  box-shadow: inset 0 0 0 6px #251c31, inset 0 0 0 7px #8d71947a, 0 20px 50px #08060f88;
+}
+.date-block span { color: #edcdd7; }
+.checkin-card, .records, .leaderboard {
+  border-color: #66546f; border-radius: 12px;
+  background: linear-gradient(150deg, #251e33, #171421 70%);
+  box-shadow: 0 20px 50px #05040a66, inset 0 0 0 1px #a58aaa18;
+}
+.checkin-card {
+  background: radial-gradient(ellipse at 50% 35%, #76536b75, transparent 48%),
+    linear-gradient(150deg, #30253c, #1b1728 65%, #15121f);
+}
+.checkin-card::before {
+  opacity: .6;
+  background: linear-gradient(90deg, #8f749b 1px, transparent 1px) left 15px top 15px / calc(100% - 30px) 1px no-repeat,
+    linear-gradient(90deg, #8f749b 1px, transparent 1px) left 15px bottom 15px / calc(100% - 30px) 1px no-repeat;
+  border: 1px solid #79617c42; inset: 9px;
+}
+.checkin-card::after {
+  content: "✦"; position: absolute; top: 24%; right: 14%; color: #cba6c8;
+  font-size: 1.2rem; opacity: .7; pointer-events: none;
+}
+.pill { color: #e9ced7; border: 1px solid #ae879f; background: #442b41; border-radius: 6px; }
+.check-symbol {
+  width: 138px; height: 160px; border-radius: 75px 75px 8px 8px;
+  background: linear-gradient(165deg, #8c6a8a, #35253c);
+  border: 1px solid #d6b6ce;
+  box-shadow: inset 0 0 0 8px #302239, inset 0 0 0 9px #c7a0bf80, 0 0 0 15px #a07d9b12, 0 0 55px #b383aa40;
+}
+.check-symbol svg { stroke: #f5e7ef; }
+.checkin-center h2, .section-heading h2, .leaderboard h2, .reset-row h3 {
+  font-family: Georgia, "Noto Serif SC", "Songti SC", SimSun, serif;
+}
+.checkin-center h2 { letter-spacing: .08em; }
+.checkin-center p, .cost-row, .gas-note { color: #d6c5d0; }
+.cost-row { border-top-color: #9b7f9a8c; }
+.cost-row strong, .stats > div:first-child strong, .rank-total { color: #efc7d4; }
+.records { background: linear-gradient(145deg, #211a2d, #181522); }
+.text-button, .rank-more { color: #eac1cf; }
+.stats { background: #171320; border-color: #65546d; border-radius: 7px; }
+.stats > div + div::before, .week-panel, .reset-row, .rank-meta { border-color: #66536d; }
+.stats > div + div::before { background: #66536d; }
+.stats span, .legend, .rank-meta, .rank-table-head, .day { color: #bbaabd; }
+.legend i { background: #d8b6cf; border-radius: 50%; }
+.day > div { background: #211a2c; border-color: #66536d; border-radius: 5px; }
+.day.today { color: #e7c2d0; }
+.day.today > div { border-color: #c99fbd; }
+.day.done > div { color: #201725; background: #e1c0cf; border-color: #e1c0cf; }
+.reset-icon { color: #eac1cf; border-color: #8c718b; border-radius: 50%; }
+.countdown { color: #eac1cf; }
+.live-badge { background: #332539; border-color: #8c718b; color: #e7c2d0; border-radius: 6px; }
+.rank-table-head { background: #17131f; border-radius: 4px; }
+.rank-item { border-color: #5a485f; }
+.rank-item.rank-top { background: #48304655; }
+.rank-item.rank-mine { background: #64425666; }
+.rank-identity a { color: #f4e8f0; }
+.rank-position { color: #beacc0; }
+.rank-top .rank-position { color: #ebc3d0; }
+.rank-avatar { color: #e6c4d0; background: linear-gradient(135deg, #604666, #2d223a); border-color: #a5819f; border-radius: 48% 48% 5px 5px; }
+.rank-me { color: #231828; background: #e1c0cf; }
+.rank-streak { color: #cdbdce; }
+.rank-self { border-color: #97728f; }
+.rank-self > span { color: #eac1cf; }
+.message, .transaction, .setup-notice { border-color: #91738e; border-radius: 7px; background: #35243c; }
+.message.error { border-color: #b78a8b; background: #4b2b38; color: #ffdde1; }
+.message.success { border-color: #ac869e; background: #3f2c45; color: #ffe5ef; }
+.transaction a, .footer-divider { color: #eac1cf; }
+.info-strip { color: #c4b3c5; }
+.info-strip > span { background: #1d1829; border-color: #514156; border-radius: 6px; }
+.info-strip b { color: #e2bbc9; }
+footer { border-top-color: #65536c; color: #ac9aae; }
+.completed .check-symbol { background: linear-gradient(155deg, #d6b5cf, #806385); border-color: #f1d1df; box-shadow: inset 0 0 0 8px #5d4562, inset 0 0 0 9px #f0d2df, 0 0 50px #d8a8c080; }
+.completed .check-symbol svg { stroke: #251a2c; }
+@media (max-width: 660px) {
+  .header-actions { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+  .header-actions .network-badge { justify-self: start; }
+  .header-actions .language-picker { justify-self: end; }
+  .header-actions #wallet-choice { max-width: none; width: 100%; }
+  .header-actions #connect { justify-self: end; }
+  .rank-table-head span { overflow-wrap: anywhere; }
+  .page-heading h1 { font-size: clamp(2.35rem, 10vw, 3.35rem); }
+  .page-heading::before { width: 132px; height: 132px; right: 4%; top: 34px; opacity: .32; }
+  .checkin-card, .records, .leaderboard { border-radius: 10px; }
+  .checkin-card { min-height: 490px; }
+  .check-symbol { width: 118px; height: 138px; }
+}

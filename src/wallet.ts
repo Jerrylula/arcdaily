@@ -1,5 +1,6 @@
 import { BrowserProvider, type Eip1193Provider, type JsonRpcSigner } from 'ethers';
 import { ARC, savedValue, saveValue, validAddress } from './config';
+import { t } from './i18n';
 
 type InjectedProvider = Eip1193Provider & {
   on?: (event: string, handler: (...args: unknown[]) => void) => void;
@@ -27,15 +28,20 @@ function updateChoices() {
   const selected = select.value;
   select.replaceChildren(...wallets.map((wallet, index) => new Option(wallet.name, String(index))));
   if (selected && Number(selected) < wallets.length) select.value = selected;
-  select.hidden = wallets.length < 2;
+  select.hidden = Boolean(session.account) || wallets.length === 0;
   select.disabled = Boolean(session.account);
+}
+
+export function refreshWalletChoices() {
+  for (const wallet of wallets) if (wallet.id === 'injected:browser') wallet.name = t('genericWallet');
+  updateChoices();
 }
 
 function register(provider: InjectedProvider | undefined, name: string, id: string) {
   if (!provider || typeof provider.request !== 'function') return;
   const existing = wallets.find(wallet => wallet.provider === provider);
   if (existing) {
-    if (name !== '浏览器钱包') existing.name = name;
+    if (name !== t('genericWallet')) existing.name = name;
   } else {
     wallets.push({ provider, name, id });
   }
@@ -44,7 +50,7 @@ function register(provider: InjectedProvider | undefined, name: string, id: stri
 }
 
 function fallbackName(provider: InjectedProvider) {
-  return provider.isBinance ? 'Binance Wallet' : provider.isRabby ? 'Rabby' : provider.isMetaMask ? 'MetaMask' : 'EVM 浏览器钱包';
+  return provider.isBinance ? 'Binance Wallet' : provider.isRabby ? 'Rabby' : provider.isMetaMask ? 'MetaMask' : t('genericWallet');
 }
 
 function fallbackId(provider: InjectedProvider) {
@@ -141,19 +147,19 @@ export async function connect() {
   discoverFallbacks();
   const index = Number((document.getElementById('wallet-choice') as HTMLSelectElement)?.value || 0);
   const wallet = wallets[index];
-  if (!wallet) throw new Error('未检测到 EVM 钱包。请安装 MetaMask、Binance Wallet 等钱包扩展，或在钱包内置浏览器中打开。');
+  if (!wallet) throw new Error(t('missingWallet'));
   generation++;
   const started = generation;
   const accounts = await wallet.provider.request({ method: 'eth_requestAccounts' }) as string[];
   const chainId = Number(await wallet.provider.request({ method: 'eth_chainId' }));
   const account = validAddress(accounts?.[0] || '');
-  if (!account) throw new Error('钱包未返回可用地址，请重试。');
+  if (!account) throw new Error(t('noAccount'));
   if (started !== generation) return;
   attach(wallet, account, chainId);
 }
 
 export async function switchToArc() {
-  if (!injected) throw new Error('请先连接钱包。');
+  if (!injected) throw new Error(t('connectFirst'));
   try {
     await injected.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: ARC.hexId }] });
   } catch (error) {
@@ -171,14 +177,14 @@ export async function switchToArc() {
   session.chainId = Number(await injected.request({ method: 'eth_chainId' }));
   session.revision++;
   onChange();
-  if (session.chainId !== ARC.id) throw new Error('请在钱包中切换到 Arc 主网。');
+  if (session.chainId !== ARC.id) throw new Error(t('selectArc'));
 }
 
 export async function signerForArc(): Promise<JsonRpcSigner> {
-  if (!injected || !session.account) throw new Error('请先连接钱包。');
-  if (Number(await injected.request({ method: 'eth_chainId' })) !== ARC.id) throw new Error('请先切换到 Arc 主网。');
+  if (!injected || !session.account) throw new Error(t('connectFirst'));
+  if (Number(await injected.request({ method: 'eth_chainId' })) !== ARC.id) throw new Error(t('switchFirst'));
   const provider = new BrowserProvider(injected, undefined, { cacheTimeout: -1 });
   const signer = await provider.getSigner(session.account);
-  if (signer.address !== session.account) throw new Error('钱包账户已变更，请重新连接。');
+  if (signer.address !== session.account) throw new Error(t('walletAccountChanged'));
   return signer;
 }
